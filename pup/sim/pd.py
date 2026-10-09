@@ -2,7 +2,8 @@
 
 import mujoco
 import numpy as np
-
+import jax
+import jax.numpy as jnp
 
 class PDController:
     """Joint proportional-derivative control with physical torque limits."""
@@ -19,10 +20,9 @@ class PDController:
     def __call__(self, q: np.ndarray, qd: np.ndarray, q_des: np.ndarray,
                  qd_des: np.ndarray | None = None) -> np.ndarray:
         """Return (12,) clipped torques, Nm, for (12,) angles/rates in rad/rad/s."""
-        if qd_des is None:
-            qd_des = np.zeros(q.size)
-        tau = self.kp * (q_des - q) + self.kd * (qd_des - qd)
-        tau = np.clip(tau, -self.torque_limit, self.torque_limit)
+        torque_limit = 20.0
+        tau = self.kp * (q_des - q) - self.kd * qd
+        tau = jnp.clip(tau, -torque_limit, torque_limit)
         return tau
 
 

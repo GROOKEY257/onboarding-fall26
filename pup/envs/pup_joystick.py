@@ -79,13 +79,24 @@ class PupJoystick(mjx_env.MjxEnv):
         Units: rad/s (3), unit direction (3), m/s,m/s,rad/s (3), rad (12),
         rad/s (12), unitless (12). Sensor quaternions are wxyz (4,).
         """
-        # ===== TODO(student): Build the exact 45-dimensional observation =====
-        raise NotImplementedError(
-            "Stage 3: Build the exact 45-dimensional observation. See docs/03_mjx_environment.md")
-        # ===== end TODO =====
+        q_wb = data.qpos[3:7]
+        q_bw = q_wb * jnp.array([1, -1, -1, -1])
+        gyro = quat_rotate(q_bw, data.qvel[3:6])
+        gravity = gravity_in_body_frame(data.qpos[3:7])
+        command = info["command"]
+        qpos = data.qpos[7:] - self._default_pose
+        qvel = data.qvel[6:]
+        last_act = info["last_act"]
+        noise = jax.random.uniform(info["rng"], shape=(45,), minval=-1.0, maxval=1.0)
+
+        obs = obs + noise * self._noise_scale
+        return obs;
 
     def _get_termination(self, data: mjx.Data) -> jax.Array:
         """Return scalar bool for upside-down, height <0.12 m, or nonfinite qpos."""
+        term = jnp.where(data.qpos[2] < 0.12, True, False)
+        not_finite = ~jnp.all(jnp.isfinite(data.qpos))
+        term = jnp.where(upvector[2] < 0)
         # ===== TODO(student): Detect falls and invalid simulation states =====
         raise NotImplementedError(
             "Stage 3: Detect falls and invalid simulation states. See docs/03_mjx_environment.md")
@@ -93,6 +104,7 @@ class PupJoystick(mjx_env.MjxEnv):
 
     def sample_command(self, rng: jax.Array) -> jax.Array:
         """Sample (3,) vx,vy,yaw within config ranges, with 10% exactly zero."""
+        
         # ===== TODO(student): Sample a bounded command including standing =====
         raise NotImplementedError(
             "Stage 3: Sample a bounded command including standing. See docs/03_mjx_environment.md")
@@ -137,9 +149,12 @@ class PupJoystick(mjx_env.MjxEnv):
         """Advance 0.02 s with (12,) unitless actions; return the same State tree."""
         info = dict(state.info)
         # ===== TODO(student): Apply targets, step physics, and assemble scaled rewards =====
+        motor_targets = self._default_pose + action * self._config.action_scale;
+        mjx_env.step(self.mjx_model, state.data, motor_targets, self.n_substeps)
+        self._update_feet(data, info)
         raise NotImplementedError(
             "Stage 3: Apply targets, step physics, and assemble scaled rewards. See docs/03_mjx_environment.md")
-        # ===== end TODO =====
+        # ===== end TODO =====        
         # Brax wrappers add their own metric keys; update, never replace.
         metrics = {**state.metrics, **scaled}
         info.update(feet_air_time=info["feet_air_time"] * ~contact,

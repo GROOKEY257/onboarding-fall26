@@ -28,16 +28,15 @@ import jax.numpy as jnp
 def pd_torques(q: jax.Array, qd: jax.Array, q_des: jax.Array,
                kp: float = 25.0, kd: float = 0.5) -> jax.Array:
     """Map (12,) q, qd, q_des in rad/rad/s to (12,) torques clipped at 20 Nm."""
-    # ===== TODO(student): Port the joint PD equation to JAX =====
-    raise NotImplementedError(
-        "Stage 2: Port the joint PD equation to JAX. See docs/02_jax_for_robotics.md")
-    # ===== end TODO =====
+    torque_limit = 20.0
+    tau = kp * (q_des - q) - kd * qd
+    tau = jnp.clip(tau, -torque_limit, torque_limit)
+    return tau
 
 
 def batched_pd(q: jax.Array, qd: jax.Array, q_des: jax.Array,
                kp: float = 25.0, kd: float = 0.5) -> jax.Array:
     """Map three (N,12) states/targets to (N,12) torques, sharing scalar gains."""
-    # ===== TODO(student): Vectorize one PD controller over robots =====
-    raise NotImplementedError(
-        "Stage 2: Vectorize one PD controller over robots. See docs/02_jax_for_robotics.md")
-    # ===== end TODO =====
+    batch = jax.vmap(pd_torques, in_axes=(0, 0, 0, None, None))
+    result: jax.Array = batch(q, qd, q_des, kp, kd)
+    return result
