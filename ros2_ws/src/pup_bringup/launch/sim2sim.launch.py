@@ -14,8 +14,64 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description() -> LaunchDescription:
-    """Return the launch description for the full sim2sim stack."""
-    # ===== TODO(student): Declare the launch arguments and the three nodes =====
-    raise NotImplementedError(
-        "Stage 5: Declare the launch arguments and the three nodes. See docs/05_ros2_sim2sim.md")
-    # ===== end TODO =====
+    # Read values supplied when running ros2 launch.
+    headless = LaunchConfiguration("headless")
+    policy_path = LaunchConfiguration("policy_path")
+    teleop = LaunchConfiguration("teleop")
+    realtime_factor = LaunchConfiguration("realtime_factor")
+
+    return LaunchDescription([
+        # Declare launch arguments.
+        DeclareLaunchArgument(
+            "headless",
+            default_value="true",
+            description="Run the simulator without a graphical window",
+        ),
+        DeclareLaunchArgument(
+            "policy_path",
+            default_value="/ws/pup/checkpoints/pup_joystick_flat_reference.npz",
+            description="Path to the exported NumPy policy",
+        ),
+        DeclareLaunchArgument(
+            "teleop",
+            default_value="false",
+            description="Launch the teleoperation node",
+        ),
+        DeclareLaunchArgument(
+            "realtime_factor",
+            default_value="1.0",
+            description="Simulator real-time factor",
+        ),
+
+        # Launch the MuJoCo simulator.
+        Node(
+            package="pup_sim",
+            executable="sim_node",
+            name="pup_sim",
+            output="screen",
+            parameters=[{
+                "headless": headless,
+                "realtime_factor": realtime_factor,
+            }],
+        ),
+
+        # Launch the policy controller.
+        Node(
+            package="pup_bringup",
+            executable="policy_node",
+            name="pup_policy",
+            output="screen",
+            parameters=[{
+                "policy_path": policy_path,
+            }],
+        ),
+
+        # Launch teleoperation only when teleop:=true.
+        Node(
+            package="pup_sim",
+            executable="teleop_node",
+            name="pup_teleop",
+            output="screen",
+            condition=IfCondition(teleop),
+        ),
+    ])

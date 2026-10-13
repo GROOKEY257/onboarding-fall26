@@ -20,9 +20,10 @@ The tests compare random unit quaternions with MuJoCo's own C routine.
 See docs/02_jax_for_robotics.md for a worked 90-degree example.
 """
 
+import math
+
 import jax
 import jax.numpy as jnp
-import math
 
 
 def quat_rotate(q: jax.Array, v: jax.Array) -> jax.Array:

@@ -1,12 +1,13 @@
 """A motor driver computes torque from position and velocity errors."""
 
+import jax.numpy as jnp
 import mujoco
 import numpy as np
-import jax
-import jax.numpy as jnp
+
 
 class PDController:
     """Joint proportional-derivative control with physical torque limits."""
+
     kp: np.ndarray
     kd: np.ndarray
     torque_limit: float 

@@ -31,6 +31,7 @@ from typing import Any
 
 import numpy as np
 
+from pup.envs.config import default_config
 from pup.envs.constants import ACTION_SCALE, DEFAULT_POSE, OBS_LAYOUT
 
 
@@ -40,7 +41,7 @@ def _layer_index(name: str) -> int:
 
 
 def export_policy(params: Any, normalizer_params: Any, out_path: str | Path) -> Path:
-    import re 
+    import re
     
     """Write a Brax MLP policy to ``out_path`` as a JAX-free ``.npz``.
 

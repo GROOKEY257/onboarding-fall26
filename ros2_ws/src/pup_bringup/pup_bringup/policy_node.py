@@ -81,24 +81,22 @@ class PolicyNode(Node):
 
     def _on_joint_state(self, message: JointState) -> None:
         """Store the most recent JointState (positions rad, velocities rad/s)."""
-        # ===== TODO(student): Cache the latest JointState =====
-        raise NotImplementedError(
-            "Stage 5: Cache the latest JointState. See docs/05_ros2_sim2sim.md")
-        # ===== end TODO =====
+        self.joint_state = message
 
     def _on_imu(self, message: Imu) -> None:
         """Store the most recent Imu (orientation xyzw, angular velocity rad/s)."""
-        # ===== TODO(student): Cache the latest Imu =====
-        raise NotImplementedError(
-            "Stage 5: Cache the latest Imu. See docs/05_ros2_sim2sim.md")
-        # ===== end TODO =====
+        self.imu = message
 
     def _on_cmd_vel(self, message: Twist) -> None:
         """Store the latest teleop command as (vx, vy, wz) in m/s, m/s, rad/s."""
-        # ===== TODO(student): Cache the latest velocity command =====
-        raise NotImplementedError(
-            "Stage 5: Cache the latest velocity command. See docs/05_ros2_sim2sim.md")
-        # ===== end TODO =====
+        self.command = np.array(
+            [
+                message.linear.x,
+                message.linear.y,
+                message.angular.z,
+            ],
+            dtype=float,
+        )
 
     def _ordered_joint_state(self) -> tuple[np.ndarray, np.ndarray]:
         """Return (q, qd), each (12,), reordered from JointState.name into JOINT_NAMES order."""
@@ -114,17 +112,94 @@ class PolicyNode(Node):
         command (3, m/s m/s rad/s) | q - default_pose (12, rad) |
         qd (12, rad/s) | last_action (12, unitless).
         """
-        # ===== TODO(student): Assemble the 45-dimensional observation =====
-        raise NotImplementedError(
-            "Stage 5: Assemble the 45-dimensional observation. See docs/05_ros2_sim2sim.md")
-        # ===== end TODO =====
+        # Convert the IMU orientation from xyzw to wxyz.
+        orientation_xyzw = np.array(
+            [
+                self.imu.orientation.x,
+                self.imu.orientation.y,
+                self.imu.orientation.z,
+                self.imu.orientation.w,
+            ],
+            dtype=float,
+        )
+        orientation_wxyz = quat_wxyz_from_xyzw(orientation_xyzw)
+
+        # IMU angular velocity is the gyro measurement, in rad/s.
+        gyro = np.array(
+            [
+                self.imu.angular_velocity.x,
+                self.imu.angular_velocity.y,
+                self.imu.angular_velocity.z,
+            ],
+            dtype=float,
+        )
+
+        # Express gravity in the robot's body frame.
+        gravity = np.asarray(
+            gravity_in_body_frame(orientation_wxyz),
+            dtype=float,
+        )
+
+        # Reorder joints to match JOINT_NAMES.
+        q, qd = self._ordered_joint_state()
+
+        # Positions are relative to the default pose; velocities are absolute.
+        relative_q = q - self.default_pose
+
+        # Concatenate in exactly the Stage 3 observation order.
+        observation = np.concatenate(
+            [
+                gyro,             # [0:3]
+                gravity,          # [3:6]
+                self.command,     # [6:9]
+                relative_q,       # [9:21]
+                qd,               # [21:33]
+                self.last_action, # [33:45]
+            ]
+        )
+
+        if observation.shape != (OBS_SIZE,):
+            raise ValueError(
+                f"Expected observation shape ({OBS_SIZE},), "
+                f"got {observation.shape}"
+            )
+
+        return observation
 
     def _on_timer(self) -> None:
-        """Run one 50 Hz control tick: observe, infer, publish."""
-        # ===== TODO(student): Wait for sensors, run the policy, publish the command =====
-        raise NotImplementedError(
-            "Stage 5: Wait for sensors, run the policy, publish the command. See docs/05_ros2_sim2sim.md")
-        # ===== end TODO =====
+        """Run one 50 Hz control tick: observe, infer, publish the command."""
+        # Wait until both sensor messages have arrived.
+        if self.joint_state is None or self.imu is None:
+            return
+
+        # Build the same observation vector used during Stage 3 training.
+        observation = self._build_observation()
+
+        # Run the exported NumPy policy to get 12 normalized actions.
+        action = np.asarray(self.policy(observation), dtype=float)
+
+        if action.shape != (12,):
+            raise ValueError(
+                f"Expected action shape (12,), got {action.shape}"
+            )
+
+        # Convert normalized actions into absolute joint position targets.
+        targets = self.default_pose + self.policy.action_scale * action
+
+        # Construct and publish the ROS joint command.
+        message = JointCommand()
+        message.header.stamp = self.get_clock().now().to_msg()
+        message.position = targets.tolist()
+        message.kp = [self.kp] * 12
+        message.kd = [self.kd] * 12
+
+        self.publisher.publish(message)
+
+        # Save the normalized action, NOT the position targets.
+        # It becomes the last_action input on the next control tick.
+        self.last_action = action.copy()
+
+        self.publish_count += 1
 
     def _log_rate(self) -> None:
         """Report the achieved control rate once a second."""

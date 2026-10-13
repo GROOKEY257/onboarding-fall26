@@ -1,13 +1,13 @@
 """Raise Pup smoothly from crouch before asking it to walk."""
 
+import time
+from contextlib import nullcontext
+
 import mujoco
 import numpy as np
 
-from contextlib import nullcontext
-
 from pup.sim.pd import PDController, joint_state
 from pup.sim.viewer import load_scene, reset_to_keyframe
-import time
 
 
 def stand_up(duration_s: float = 3.0, headless: bool = True,

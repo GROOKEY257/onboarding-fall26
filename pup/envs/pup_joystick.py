@@ -12,9 +12,7 @@ from pup.envs import rewards
 from pup.envs.config import default_config
 from pup.envs.constants import CONTACT_SENSORS, MJX_SCENE
 from pup.envs.math_utils import get_sensor_data, quat_inv, rotate
-from pup.jaxlab.ex3_quaternions import gravity_in_body_frame
-from pup.jaxlab.ex3_quaternions import quat_rotate
-
+from pup.jaxlab.ex3_quaternions import gravity_in_body_frame, quat_rotate
 
 
 class PupJoystick(mjx_env.MjxEnv):
@@ -78,7 +76,6 @@ class PupJoystick(mjx_env.MjxEnv):
     
     def _get_obs(self, data: mjx.Data, info: dict[str, Any]) -> jax.Array:
         """Return noisy (45,) observation."""
-
         q_wb = data.qpos[3:7]
         q_bw = q_wb * jnp.array([1.0, -1.0, -1.0, -1.0])
 
@@ -118,7 +115,6 @@ class PupJoystick(mjx_env.MjxEnv):
     
     def _get_termination(self, data: mjx.Data) -> jax.Array:
         """Return scalar bool for upside-down, height <0.12 m, or nonfinite qpos."""
-
         # Get the trunk's up-vector from the MuJoCo sensor
         upvector = get_sensor_data(self.mj_model, data, "upvector")
 
@@ -140,7 +136,6 @@ class PupJoystick(mjx_env.MjxEnv):
 
     def sample_command(self, rng: jax.Array) -> jax.Array:
         """Sample (3,) vx,vy,yaw within config ranges, with 10% exactly zero."""
-
         # Split the random key into two independent keys
         rng_vel, rng_zero = jax.random.split(rng)
 
