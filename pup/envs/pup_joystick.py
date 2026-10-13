@@ -13,6 +13,8 @@ from pup.envs.config import default_config
 from pup.envs.constants import CONTACT_SENSORS, MJX_SCENE
 from pup.envs.math_utils import get_sensor_data, quat_inv, rotate
 from pup.jaxlab.ex3_quaternions import gravity_in_body_frame
+from pup.jaxlab.ex3_quaternions import quat_rotate
+
 
 
 class PupJoystick(mjx_env.MjxEnv):
@@ -73,42 +75,94 @@ class PupJoystick(mjx_env.MjxEnv):
         return mjx_env.State(data, self._get_obs(data, info), jnp.zeros(()),
                              jnp.zeros(()), metrics, info)
 
+    
     def _get_obs(self, data: mjx.Data, info: dict[str, Any]) -> jax.Array:
-        """Return noisy (45,) gyro/gravity/command/q-offset/qd/last_action.
+        """Return noisy (45,) observation."""
 
-        Units: rad/s (3), unit direction (3), m/s,m/s,rad/s (3), rad (12),
-        rad/s (12), unitless (12). Sensor quaternions are wxyz (4,).
-        """
         q_wb = data.qpos[3:7]
-        q_bw = q_wb * jnp.array([1, -1, -1, -1])
+        q_bw = q_wb * jnp.array([1.0, -1.0, -1.0, -1.0])
+
         gyro = quat_rotate(q_bw, data.qvel[3:6])
         gravity = gravity_in_body_frame(data.qpos[3:7])
         command = info["command"]
         qpos = data.qpos[7:] - self._default_pose
         qvel = data.qvel[6:]
         last_act = info["last_act"]
-        noise = jax.random.uniform(info["rng"], shape=(45,), minval=-1.0, maxval=1.0)
 
-        obs = obs + noise * self._noise_scale
-        return obs;
+        obs = jnp.concatenate([
+            gyro,
+            gravity,
+            command,
+            qpos,
+            qvel,
+            last_act,
+        ])
 
+        
+        noise = jax.random.uniform(
+            info["rng"],
+            shape=(45,),
+            minval=-1.0,
+            maxval=1.0,
+        )
+
+        # Keep noise only on the gyro block.
+        noise_scale = self._noise_scale.at[3:33].set(0.0)
+
+        obs = obs + noise * noise_scale
+        return obs
+
+
+
+    
+    
     def _get_termination(self, data: mjx.Data) -> jax.Array:
         """Return scalar bool for upside-down, height <0.12 m, or nonfinite qpos."""
-        term = jnp.where(data.qpos[2] < 0.12, True, False)
+
+        # Get the trunk's up-vector from the MuJoCo sensor
+        upvector = get_sensor_data(self.mj_model, data, "upvector")
+
+        # Check if the trunk is upside down
+        flipped = upvector[2] < 0.0
+
+        # Check if the trunk is too close to the ground
+        too_low = data.qpos[2] < 0.12
+
+        # Check whether any position value is NaN or infinite
         not_finite = ~jnp.all(jnp.isfinite(data.qpos))
-        term = jnp.where(upvector[2] < 0)
-        # ===== TODO(student): Detect falls and invalid simulation states =====
-        raise NotImplementedError(
-            "Stage 3: Detect falls and invalid simulation states. See docs/03_mjx_environment.md")
-        # ===== end TODO =====
+
+        # Terminate if any condition is true
+        term = flipped | too_low | not_finite
+
+        return term
+
+
 
     def sample_command(self, rng: jax.Array) -> jax.Array:
         """Sample (3,) vx,vy,yaw within config ranges, with 10% exactly zero."""
-        
-        # ===== TODO(student): Sample a bounded command including standing =====
-        raise NotImplementedError(
-            "Stage 3: Sample a bounded command including standing. See docs/03_mjx_environment.md")
-        # ===== end TODO =====
+
+        # Split the random key into two independent keys
+        rng_vel, rng_zero = jax.random.split(rng)
+
+        # Sample random velocities within their respective ranges
+        velocities = jax.random.uniform(
+            rng_vel,
+            shape=(3,),
+            minval=jnp.array([-1.0, -0.8, -1.2]),
+            maxval=jnp.array([1.5, 0.8, 1.2]),
+        )
+
+        # Generate a random number to determine whether to stand still
+        zero_command = jax.random.uniform(rng_zero) < 0.1
+
+        # Return [0, 0, 0] with 10% probability; otherwise return velocities
+        command = jnp.where(
+            zero_command,
+            jnp.zeros(3),
+            velocities,
+        )
+
+        return command
 
     def _update_feet(self, data: mjx.Data, info: dict) -> tuple:
         """Read (4,) contact flags from sensors; accumulate swing durations in s."""
@@ -148,13 +202,37 @@ class PupJoystick(mjx_env.MjxEnv):
     def step(self, state: mjx_env.State, action: jax.Array) -> mjx_env.State:
         """Advance 0.02 s with (12,) unitless actions; return the same State tree."""
         info = dict(state.info)
-        # ===== TODO(student): Apply targets, step physics, and assemble scaled rewards =====
-        motor_targets = self._default_pose + action * self._config.action_scale;
-        mjx_env.step(self.mjx_model, state.data, motor_targets, self.n_substeps)
-        self._update_feet(data, info)
-        raise NotImplementedError(
-            "Stage 3: Apply targets, step physics, and assemble scaled rewards. See docs/03_mjx_environment.md")
-        # ===== end TODO =====        
+        
+        motor_targets = (
+            self._default_pose + action * self._config.action_scale
+        )
+
+        data = mjx_env.step(
+            self.mjx_model, state.data, motor_targets, self.n_substeps
+        )
+
+        info, contact, first_contact = self._update_feet(data, info)
+
+        done = self._get_termination(data)
+
+        terms = self._reward_terms(
+            data, action, info, done, first_contact
+        )
+
+        scales = self._config.reward_config.scales
+        scaled = {
+            name: terms[name] * scales[name]
+            for name in terms
+        }
+
+        reward = jnp.clip(
+            sum(scaled.values()) * self.dt,
+            0.0,
+            10000.0,
+        )
+
+        info["last_last_act"] = info["last_act"]
+        info["last_act"] = action   
         # Brax wrappers add their own metric keys; update, never replace.
         metrics = {**state.metrics, **scaled}
         info.update(feet_air_time=info["feet_air_time"] * ~contact,

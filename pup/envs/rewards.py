@@ -4,31 +4,24 @@ import jax
 import jax.numpy as jnp
 
 
-def reward_tracking_lin_vel(command: jax.Array, local_linvel: jax.Array,
-                            sigma: float = 0.25) -> jax.Array:
-    """Return exp(-xy error²/sigma), scalar; inputs (3,), m/s and rad/s."""
-    # ===== TODO(student): Reward tracking the commanded body-frame xy velocity =====
-    raise NotImplementedError(
-        "Stage 3: Reward tracking the commanded body-frame xy velocity. See docs/03_mjx_environment.md")
-    # ===== end TODO =====
+def reward_tracking_lin_vel(command, local_linvel, sigma=0.25):
+    error = command[:2] - local_linvel[:2]
+    return jnp.exp(-jnp.sum(error ** 2) / sigma)
 
 
-def reward_tracking_ang_vel(command: jax.Array, ang_vel: jax.Array,
-                            sigma: float = 0.25) -> jax.Array:
-    """Return yaw tracking score, scalar; command (3,), angular velocity (3,), rad/s."""
-    # ===== TODO(student): Reward tracking the commanded yaw rate =====
-    raise NotImplementedError(
-        "Stage 3: Reward tracking the commanded yaw rate. See docs/03_mjx_environment.md")
-    # ===== end TODO =====
+def reward_tracking_ang_vel(command, ang_vel, sigma=0.25):
+    error = command[2] - ang_vel[2]
+    return jnp.exp(-(error ** 2) / sigma)
 
 
-def cost_action_rate(act: jax.Array, last_act: jax.Array,
-                     last_last_act: jax.Array) -> jax.Array:
-    """Sum squared first and second differences of three unitless (12,) actions."""
-    # ===== TODO(student): Penalize changes in actions and their first differences =====
-    raise NotImplementedError(
-        "Stage 3: Penalize changes in actions and their first differences. See docs/03_mjx_environment.md")
-    # ===== end TODO =====
+def cost_action_rate(act, last_act, last_last_act):
+    first_difference = act - last_act
+    second_difference = act - 2 * last_act + last_last_act
+
+    return (
+        jnp.sum(first_difference ** 2)
+        + jnp.sum(second_difference ** 2)
+    )
 
 
 def cost_lin_vel_z(velocity: jax.Array) -> jax.Array:
