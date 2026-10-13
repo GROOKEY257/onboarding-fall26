@@ -28,10 +28,34 @@ class NumpyPolicy:
 
     def __init__(self, archive: dict) -> None:
         """Build from the dict of arrays produced by ``pup.train.export``."""
-        # ===== TODO(student): Unpack the archive into layers and metadata =====
-        raise NotImplementedError(
-            "Stage 4: Unpack the archive into layers and metadata. See docs/04_training_with_brax.md")
-        # ===== end TODO =====
+        self.obs_mean = np.asarray(archive["obs_mean"], dtype=np.float32)
+        self.obs_std = np.asarray(archive["obs_std"], dtype=np.float32)
+
+        self.n_layers = int(archive["n_layers"])
+        self.obs_size = int(archive["obs_size"])
+        self.action_size = int(archive["action_size"])
+
+        self.action_scale = np.asarray(archive["action_scale"], dtype=np.float32)
+        self.default_pose = np.asarray(archive["default_pose"], dtype=np.float32)
+        self.hidden_activation = str(archive["hidden_activation"].item())
+        self.obs_layout = archive["obs_layout"].item()
+
+        # Keep the layers in forward-pass order.
+        self.layers = []
+        for i in range(self.n_layers):
+            kernel = np.asarray(archive[f"kernel_{i}"], dtype=np.float32)
+            bias = np.asarray(archive[f"bias_{i}"], dtype=np.float32)
+            self.layers.append((kernel, bias))
+
+        # Validate the exported policy's expected dimensions.
+        if self.obs_mean.shape != (self.obs_size,):
+            raise ValueError(f"Invalid obs_mean shape: {self.obs_mean.shape}")
+        if self.obs_std.shape != (self.obs_size,):
+            raise ValueError(f"Invalid obs_std shape: {self.obs_std.shape}")
+        if self.layers[0][0].shape[0] != self.obs_size:
+            raise ValueError("First layer input size does not match obs_size")
+        if self.layers[-1][0].shape[1] != 2 * self.action_size:
+            raise ValueError("Final layer must output means and std parameters")
 
     @classmethod
     def load(cls, path: str | Path) -> "NumpyPolicy":
@@ -41,14 +65,37 @@ class NumpyPolicy:
 
     def __call__(self, obs: np.ndarray) -> np.ndarray:
         """Map a (45,) observation to a (12,) action in [-1, 1], unitless."""
-        # ===== TODO(student): Normalize, run the MLP, and squash with tanh =====
-        raise NotImplementedError(
-            "Stage 4: Normalize, run the MLP, and squash with tanh. See docs/04_training_with_brax.md")
-        # ===== end TODO =====
+        x = np.asarray(obs, dtype=np.float32)
+
+        if x.shape != (self.obs_size,):
+            raise ValueError(
+                f"Expected observation shape ({self.obs_size},), got {x.shape}"
+            )
+
+        # Normalize the observation using the statistics from training.
+        x = (x - self.obs_mean) / (self.obs_std + 1e-8)
+
+        # Run the MLP in forward order.
+        for i, (kernel, bias) in enumerate(self.layers):
+            x = x @ kernel + bias
+
+            # Swish activation on hidden layers only.
+            if i < self.n_layers - 1:
+                if self.hidden_activation != "swish":
+                    raise ValueError(
+                        f"Unsupported hidden activation: {self.hidden_activation}"
+                    )
+                x = x / (1.0 + np.exp(-x))
+
+        # Final output: [12 means, 12 std parameters].
+        mean = x[:self.action_size]
+
+        # Deterministic action.
+        return np.tanh(mean).astype(np.float32)
 
     def joint_targets(self, obs: np.ndarray) -> np.ndarray:
         """Map a (45,) observation to (12,) joint position targets in rad."""
-        # ===== TODO(student): Convert the action into absolute joint targets =====
-        raise NotImplementedError(
-            "Stage 4: Convert the action into absolute joint targets. See docs/04_training_with_brax.md")
-        # ===== end TODO =====
+        action = self(obs)
+        return (
+            self.default_pose + self.action_scale * action
+        ).astype(np.float32)
