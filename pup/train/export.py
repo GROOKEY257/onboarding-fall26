@@ -61,7 +61,7 @@ def export_policy(params: Any, normalizer_params: Any, out_path: str | Path) -> 
     ``action_scale``, ``default_pose`` (12,), ``hidden_activation`` and
     ``obs_layout``.
     """
-    # Extract the policy layers and observation normalizer.
+        # Extract the policy layers and observation normalizer.
     policy_tree = params["params"]
     obs_mean = np.asarray(normalizer_params.mean)
     obs_std = np.asarray(normalizer_params.std)
@@ -72,39 +72,28 @@ def export_policy(params: Any, normalizer_params: Any, out_path: str | Path) -> 
     if obs_mean.shape != (obs_size,) or obs_std.shape != (obs_size,):
         raise ValueError("Expected obs_mean and obs_std to have shape (45,)")
 
-    # Sort hidden layers by their numeric suffix, not dictionary order.
-    def layer_index(name):
-        match = re.fullmatch(r"hidden_(\d+)", name)
-        return int(match.group(1)) if match else None
-
-    hidden_names = sorted(
+    # Sort all layers by their numeric suffix, including the final output layer.
+    ordered_names = sorted(
         [
-            name for name in policy_tree
-            if layer_index(name) is not None
+            name
+            for name, layer in policy_tree.items()
+            if name.startswith("hidden_")
+            and isinstance(layer, dict)
+            and "kernel" in layer
+            and "bias" in layer
         ],
-        key=layer_index,
+        key=_layer_index,
     )
 
-    # Find the final dense layer, which is not named hidden_i.
-    output_names = [
-        name for name, layer in policy_tree.items()
-        if layer_index(name) is None
-        and isinstance(layer, dict)
-        and "kernel" in layer
-        and "bias" in layer
-    ]
+    if not ordered_names:
+        raise ValueError("No policy layers found")
 
-    if len(output_names) != 1:
-        raise ValueError(f"Expected one output layer, found {output_names}")
-
-    ordered_names = hidden_names + output_names
-
-    # Store arrays in forward-pass order.
     arrays = {
         "obs_mean": obs_mean,
         "obs_std": obs_std,
     }
 
+    # Serialize each layer in forward-pass order.
     previous_size = obs_size
 
     for i, name in enumerate(ordered_names):
@@ -128,33 +117,21 @@ def export_policy(params: Any, normalizer_params: Any, out_path: str | Path) -> 
 
     if previous_size != 2 * action_size:
         raise ValueError(
-            f"Expected final layer size 24, got {previous_size}"
+            f"Expected final layer size {2 * action_size}, got {previous_size}"
         )
 
-    # Include environment metadata.
-    config = default_config()
-    default_pose = np.asarray(config.default_pose)
-    action_scale = np.asarray(config.action_scale)
-
-    if default_pose.shape != (action_size,):
-        raise ValueError(
-            f"Expected default_pose shape (12,), got {default_pose.shape}"
-        )
-
+    # Include the robot's action and observation metadata.
     arrays.update({
         "n_layers": np.asarray(len(ordered_names), dtype=np.int32),
         "obs_size": np.asarray(obs_size, dtype=np.int32),
         "action_size": np.asarray(action_size, dtype=np.int32),
-        "action_scale": action_scale,
-        "default_pose": default_pose,
+        "action_scale": np.asarray(ACTION_SCALE),
+        "default_pose": np.asarray(DEFAULT_POSE),
         "hidden_activation": np.asarray("swish"),
-        "obs_layout": np.asarray(
-            "gyro[0:3],gravity_body[3:6],command[6:9],"
-            "qpos_minus_default[9:21],qvel[21:33],last_action[33:45]"
-        ),
+        "obs_layout": np.asarray(OBS_LAYOUT),
     })
 
-    # Create the destination directory and write the archive.
+    # Save the NumPy-compatible archive.
     destination = Path(out_path).resolve()
     destination.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(destination, **arrays)

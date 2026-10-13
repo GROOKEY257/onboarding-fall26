@@ -72,26 +72,19 @@ class NumpyPolicy:
                 f"Expected observation shape ({self.obs_size},), got {x.shape}"
             )
 
-        # Normalize the observation using the statistics from training.
-        x = (x - self.obs_mean) / (self.obs_std + 1e-8)
+        # Normalize the observation.
+        x = (x - self.obs_mean) / self.obs_std
 
-        # Run the MLP in forward order.
+        # Run the MLP: swish for hidden layers, linear output layer.
         for i, (kernel, bias) in enumerate(self.layers):
             x = x @ kernel + bias
 
-            # Swish activation on hidden layers only.
             if i < self.n_layers - 1:
-                if self.hidden_activation != "swish":
-                    raise ValueError(
-                        f"Unsupported hidden activation: {self.hidden_activation}"
-                    )
-                x = x / (1.0 + np.exp(-x))
+                x = swish(x)
 
-        # Final output: [12 means, 12 std parameters].
-        mean = x[:self.action_size]
+        # Use the first 12 outputs as action means and squash with tanh.
+        return np.tanh(x[:self.action_size]).astype(np.float32)
 
-        # Deterministic action.
-        return np.tanh(mean).astype(np.float32)
 
     def joint_targets(self, obs: np.ndarray) -> np.ndarray:
         """Map a (45,) observation to (12,) joint position targets in rad."""

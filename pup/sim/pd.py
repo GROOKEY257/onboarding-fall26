@@ -21,10 +21,11 @@ class PDController:
     def __call__(self, q: np.ndarray, qd: np.ndarray, q_des: np.ndarray,
                  qd_des: np.ndarray | None = None) -> np.ndarray:
         """Return (12,) clipped torques, Nm, for (12,) angles/rates in rad/rad/s."""
-        torque_limit = 20.0
-        tau = self.kp * (q_des - q) - self.kd * qd
-        tau = jnp.clip(tau, -torque_limit, torque_limit)
-        return tau
+        if qd_des is None:
+            qd_des = jnp.zeros_like(qd)
+
+        tau = self.kp * (q_des - q) + self.kd * (qd_des - qd)
+        return np.clip(np.asarray(tau), -self.torque_limit, self.torque_limit)
 
 
 def joint_state(model: mujoco.MjModel, data: mujoco.MjData) -> tuple[np.ndarray, np.ndarray]:
