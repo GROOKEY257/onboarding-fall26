@@ -58,7 +58,7 @@ Every TODO(student) block is written. Nice.
 ## Stage 4 — training results
 
 **Config used:** (`full`) &nbsp; **Seed:** 0 &nbsp;
-**Where it ran:** (Colab T4) &nbsp; **Wall-clock:** 
+**Where it ran:** (Colab T4) &nbsp; **Wall-clock:** 52 minutes
 
 Learning curve: <img width="690" height="594" alt="learning_curve" src="https://github.com/user-attachments/assets/f85b3bf3-9d6c-483a-9935-d4ad6cf04caf" />
 
