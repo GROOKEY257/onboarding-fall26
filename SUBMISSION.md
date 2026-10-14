@@ -57,8 +57,8 @@ Every TODO(student) block is written. Nice.
 
 ## Stage 4 — training results
 
-**Config used:** (`full`) &nbsp; **Seed:** &nbsp;
-**Where it ran:** (Colab T4) &nbsp; **Wall-clock:**
+**Config used:** (`full`) &nbsp; **Seed:** 0 &nbsp;
+**Where it ran:** (Colab T4) &nbsp; **Wall-clock:** 
 
 Learning curve: <img width="690" height="590" alt="image" src="https://github.com/user-attachments/assets/79aa0951-852b-447b-b042-2b524beb93f2" />
 
@@ -77,7 +77,7 @@ Teleop GIF: `results/sim2sim_teleop.gif`
 ```json
 {
   "duration_s": 20.0,
-  "min_trunk_height": 0.29080933985803675,
+  "min_trunk_height": 0.29144480893579094,
   "fell": false,
   "commands": [
     {
@@ -88,16 +88,16 @@ Teleop GIF: `results/sim2sim_teleop.gif`
       ],
       "n_samples": 151,
       "mean_velocity": [
-        0.3851300945635746,
-        0.009848236340293172,
-        -1.6629729581449172e-05
+        0.38684215210844447,
+        0.00814186995665601,
+        -0.0005326592037491536
       ],
       "mean_abs_error": [
-        0.11486990543642539,
-        0.009848236340293172,
-        1.6629729581449172e-05
+        0.11315784789155553,
+        0.00814186995665601,
+        0.0005326592037491536
       ],
-      "mean_speed": 0.3853263940667031,
+      "mean_speed": 0.3869935053639113,
       "threshold": 0.25,
       "passed": true
     },
@@ -109,16 +109,16 @@ Teleop GIF: `results/sim2sim_teleop.gif`
       ],
       "n_samples": 150,
       "mean_velocity": [
-        0.9576339076414073,
-        -0.009475488324482093,
-        -0.00488484437301761
+        0.9521203631256752,
+        -0.009549845374085207,
+        -0.012107732866052826
       ],
       "mean_abs_error": [
-        0.04236609235859268,
-        0.009475488324482093,
-        0.00488484437301761
+        0.04787963687432484,
+        0.009549845374085207,
+        0.012107732866052826
       ],
-      "mean_speed": 0.9580095327479282
+      "mean_speed": 0.9524564889597446
     },
     {
       "command": [
@@ -128,16 +128,16 @@ Teleop GIF: `results/sim2sim_teleop.gif`
       ],
       "n_samples": 150,
       "mean_velocity": [
-        -0.09037953822426074,
-        0.07573641660111385,
-        0.9910696348895893
+        -0.08941239062612842,
+        0.07473635426543493,
+        0.9902400634704319
       ],
       "mean_abs_error": [
-        0.09037953822426074,
-        0.07573641660111385,
-        0.008930365110410676
+        0.08941239062612842,
+        0.07473635426543493,
+        0.00975993652956808
       ],
-      "mean_speed": 0.11984849297889265
+      "mean_speed": 0.11836093606452448
     },
     {
       "command": [
@@ -147,16 +147,16 @@ Teleop GIF: `results/sim2sim_teleop.gif`
       ],
       "n_samples": 150,
       "mean_velocity": [
-        -9.116386514856765e-05,
-        8.975978752910178e-05,
-        -5.764426470764799e-05
+        -4.292406373022428e-05,
+        8.455396094763676e-05,
+        4.144353038139329e-05
       ],
       "mean_abs_error": [
-        9.116386514856765e-05,
-        8.975978752910178e-05,
-        5.764426470764799e-05
+        4.292406373022428e-05,
+        8.455396094763676e-05,
+        4.144353038139329e-05
       ],
-      "mean_speed": 0.005273793796460159
+      "mean_speed": 0.004927584755784716
     }
   ],
   "passed": true
@@ -179,25 +179,25 @@ Measured `/pup/joint_command` rate from `ros2 topic hz`:
 **List two ways sim2sim can pass while real hardware still fails, and what you
 would add to the sim node to catch each.**
 
->
+>A real robot might have different friction and motor strengths. I would add torque limits and random friction to account for these. Real sensors may have delays that don't have a constant update rate like the simulation. I would add some sensor noise and delays in the sim node to catch policies that depend on perfectly timed observations.
 
 ## What was hardest?
 
 One paragraph. This is will help us improve onboarding.
 
->
+>The hardest part was trying to understand how to code the _get_obs(data, info) function and understanding the math behind the training of the policy and quaternions. I didn't really understand how to calculate the gyro of the robot. I also still kind of don't understand the math behind calculating the rewards for each of the movements the robot does during its training. The quaternion math was also kind of confusing because I hadn't worked with 4D vectors before in an actual real life application. 
 
 ## Time spent
 
 | Stage | Hours |
 |---|---|
-| 0 Setup | |
-| 1 MuJoCo + PD | |
-| 2 JAX | |
-| 3 MJX env | |
-| 4 Brax + export | |
-| 5 ROS 2 | |
-| **Total** | |
+| 0 Setup |1|
+| 1 MuJoCo + PD |2|
+| 2 JAX |2|
+| 3 MJX env |5|
+| 4 Brax + export |10|
+| 5 ROS 2 |6|
+| **Total** |26|
 
 ---
 
