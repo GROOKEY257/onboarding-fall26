@@ -60,19 +60,108 @@ Every TODO(student) block is written. Nice.
 **Config used:** (`full`) &nbsp; **Seed:** 0 &nbsp;
 **Where it ran:** (Colab T4) &nbsp; **Wall-clock:** 
 
-Learning curve: <img width="690" height="590" alt="image" src="https://github.com/user-attachments/assets/79aa0951-852b-447b-b042-2b524beb93f2" />
+Learning curve: <img width="690" height="594" alt="learning_curve" src="https://github.com/user-attachments/assets/f85b3bf3-9d6c-483a-9935-d4ad6cf04caf" />
 
-Rollout GIF: `results/training.gif`
+
+Rollout GIF: <img width="480" height="360" alt="training" src="https://github.com/user-attachments/assets/15d88ad9-aa36-4f1c-9641-21fc2f56ca2e" />
+
 
 ```json
-(paste results/eval_training.json)
+{
+  "seed": 0,
+  "n_episodes": 5,
+  "commands": [
+    {
+      "command": [
+        0.5,
+        0.0,
+        0.0
+      ],
+      "mean_abs_error": [
+        0.04095508968904615,
+        0.03783120522607351,
+        0.06429639094207815
+      ],
+      "mean_abs_vy": 0.03783120587468147,
+      "mean_speed": 0.48705968260765076,
+      "fall_rate": 0.0,
+      "mean_episode_length": 1000.0
+    },
+    {
+      "command": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "mean_abs_error": [
+        0.06039156036451459,
+        0.03960291149731492,
+        0.06677012027379242
+      ],
+      "mean_abs_vy": 0.039602912962436676,
+      "mean_speed": 0.9604790806770325,
+      "fall_rate": 0.0,
+      "mean_episode_length": 1000.0
+    },
+    {
+      "command": [
+        0.0,
+        0.5,
+        0.0
+      ],
+      "mean_abs_error": [
+        0.03170375525192358,
+        0.03774958482384682,
+        0.060872955922866824
+      ],
+      "mean_abs_vy": 0.494541198015213,
+      "mean_speed": 0.4964277446269989,
+      "fall_rate": 0.0,
+      "mean_episode_length": 1000.0
+    },
+    {
+      "command": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "mean_abs_error": [
+        0.029201994308334544,
+        0.03349815212571266,
+        0.06395855396986008
+      ],
+      "mean_abs_vy": 0.03349815309047699,
+      "mean_speed": 0.049090426415205,
+      "fall_rate": 0.0,
+      "mean_episode_length": 1000.0
+    },
+    {
+      "command": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mean_abs_error": [
+        0.036109516263610565,
+        0.03517708714180044,
+        0.08204666090941755
+      ],
+      "mean_abs_vy": 0.0351770855486393,
+      "mean_speed": 0.05610450357198715,
+      "fall_rate": 0.0,
+      "mean_episode_length": 1000.0
+    }
+  ],
+  "walking_passes": true
+}
 ```
 
-Did it meet the acceptance criteria (`"walking_passes": false`)?
+Did it meet the acceptance criteria (`"walking_passes": true`)?
 
 ## Stage 5 — sim2sim results
 
-Teleop GIF: `results/sim2sim_teleop.gif`
+Teleop GIF: <img width="480" height="360" alt="pup_walk" src="https://github.com/user-attachments/assets/d7b1bf0f-d6f1-466d-9c82-36c10fc27d77" />
+
 
 ```json
 {
